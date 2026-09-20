@@ -1,0 +1,55 @@
+name: Build MacIsland app
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'MacIsland/**'
+      - '.github/workflows/build-macos.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build macOS app
+    runs-on: macos-14
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Build Release app
+        run: |
+          set -euo pipefail
+          rm -rf build
+          xcodebuild \
+            -project MacIsland/MacIsland.xcodeproj \
+            -scheme MacIsland \
+            -configuration Release \
+            -sdk macosx \
+            -arch arm64 \
+            -derivedDataPath build/DerivedData \
+            CONFIGURATION_BUILD_DIR="$PWD/build/Release" \
+            CODE_SIGNING_ALLOWED=NO \
+            clean build
+
+      - name: Package app
+        run: |
+          set -euo pipefail
+          test -d build/Release/MacIsland.app
+          ditto -c -k --sequesterRsrc --keepParent \
+            build/Release/MacIsland.app \
+            build/MacIsland-arm64.zip
+
+      - name: Upload downloadable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MacIsland-arm64
+          path: build/MacIsland-arm64.zip
+          if-no-files-found: error
+          retention-days: 14
